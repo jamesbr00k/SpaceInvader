@@ -17,8 +17,6 @@ namespace SpaceInvaders {
         int score = 0;
         Color backgroundColor = Color.White;
 
-//EERRM WHAT THE SIGMA???????????!!!!💀💀💀💀💀💀💀💀
-
         // Textures
         Texture2D playerTexture, enemyTexture, bulletTexture;
 
