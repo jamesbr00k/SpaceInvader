@@ -1,0 +1,200 @@
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using System.Collections.Generic;
+using System;
+using System.Linq;
+using System.Xml;
+
+namespace SpaceInvaders {
+    public class Game1 : Game {
+        private GraphicsDeviceManager _graphics;
+        private SpriteBatch _spriteBatch;
+
+        // Game state
+        enum GameState { Playing, Won, Lost }
+        GameState gameState = GameState.Playing;
+        int score = 0;
+        Color backgroundColor = Color.White;
+
+        // Textures
+        Texture2D playerTexture, enemyTexture, bulletTexture;
+
+        // TODO: text gen code
+
+        // Sprite rectangles (no enemy)
+        Microsoft.Xna.Framework.Rectangle playerRectangle, bulletRectangle;
+
+        // enemy
+        public class enemy {
+            public bool live;
+            public int x, y;
+            
+        }
+
+        enemy[] Enemy = Array.Empty<enemy>();
+        List<enemy> Enemies = new();
+        const int enemyWidth = 50;
+        const int enemyHeight = 50;
+        const int enemyStartHeight = 10;
+        const int EnemySpeedY = 10;
+        const int EnemySpacing = 60;
+        const int enemyBatchCount = 10;
+        int enemyMovementX = 1;
+
+        // Player properties
+        const int playerWidth = 40;
+        const int playerHeight = 60;
+        const int playerY = 400;
+        const int PlayerSpeed = 5;
+        int playerX = 0;
+
+        // Bullet properties
+        const int bulletWidth = 10;
+        const int bulletHeight = 30;
+        const int bulletSpeed = 5;
+        bool BulletFired = false;
+        int bulletX = 0;
+        int bulletY = 0;
+
+        public Game1() {
+            _graphics = new GraphicsDeviceManager(this);
+            Content.RootDirectory = "Content";
+            IsMouseVisible = false;
+        }
+
+        protected override void Initialize() {
+            playerRectangle = new Microsoft.Xna.Framework.Rectangle(0, playerY, playerWidth, playerHeight);
+            bulletRectangle = new Microsoft.Xna.Framework.Rectangle(bulletX, bulletY, bulletWidth, bulletHeight);
+
+            gameState = GameState.Playing;
+
+            base.Initialize();
+        }
+
+        protected override void LoadContent() {
+            _spriteBatch = new SpriteBatch(GraphicsDevice);
+
+            playerTexture = Content.Load<Texture2D>("Untitled");
+            enemyTexture = Content.Load<Texture2D>("invader");
+            bulletTexture = Content.Load<Texture2D>("Untitled");
+
+            for (int i = 0; i < enemyBatchCount; i++) {
+                Enemies.Add(new enemy {
+                    x = i * EnemySpacing,
+                    y = enemyStartHeight,
+                    live = true
+                });
+            }
+        }
+
+        protected override void Update(GameTime gameTime) {
+            var keyboardState = Keyboard.GetState();
+
+            if (keyboardState.IsKeyDown(Keys.Escape))
+                Exit();
+
+            switch (gameState) {
+                case GameState.Playing: {
+                        //MARK: Invader Movement
+                        bool shouldDropDown = false;
+
+                        // Move invaders left or right and check if any hit a side of the screen
+                        foreach (var enemy in Enemies) {
+                            enemy.x += enemyMovementX;
+                        }
+
+                        // Check if the leftmost or rightmost enemy has hit a side of the screen
+                        if (Enemies.Min(e => e.x) < 0 || Enemies.Max(e => e.x) > _graphics.PreferredBackBufferWidth - enemyWidth) {
+                            shouldDropDown = true;
+                            enemyMovementX = -enemyMovementX;
+                        }
+
+                        //MARK: If any invader hit a side of the screen, move all invaders down
+                        if (shouldDropDown) {
+                            foreach (var enemy in Enemies) {
+                                enemy.y += EnemySpeedY;
+                            }
+
+                            // If there is room above for another row and room at the bottom, add another row of enemies
+                            int min = 1000000000;
+                            foreach (var enemy in Enemies) {
+                                if (enemy.x < min) { min = enemy.x; }
+                            }
+                            if (min < enemyHeight*4) {
+                                for (int i = 0; i < enemyBatchCount; i++) {
+                                    Enemies.Add(new enemy { x = i * EnemySpacing, y = enemyStartHeight - enemyHeight/2});
+
+                                }
+                                score += 50;
+                            }
+                        }
+
+                        //MARK: Bullet Logic
+                        if (BulletFired) {
+                            for (int i = Enemies.Count - 1; i >= 0; i--) {
+                                if (bulletRectangle.Intersects(new Rectangle(Enemies[i].x, Enemies[i].y, enemyWidth, enemyHeight))) {
+                                    Enemies.RemoveAt(i);
+                                    BulletFired = false;
+                                    score += 10;
+                                    break;
+                                }
+                                else if (bulletY < 0) {
+                                    BulletFired = false;
+                                    break;
+                                }
+                            }
+                            bulletY -= bulletSpeed;
+                            bulletRectangle = new Microsoft.Xna.Framework.Rectangle(bulletX, bulletY, bulletWidth, bulletHeight);
+                        }
+                        else if (keyboardState.IsKeyDown(Keys.W)) {
+                            BulletFired = true;
+                            bulletX = playerX + (playerWidth / 2);
+                            bulletY = playerY - playerHeight / 2;
+                            bulletRectangle = new Microsoft.Xna.Framework.Rectangle(bulletX, bulletY, bulletWidth, bulletHeight);
+                        }
+
+                        if (keyboardState.IsKeyDown(Keys.A)) {
+                            playerX -= bulletSpeed;
+                        } else if (keyboardState.IsKeyDown(Keys.D)) {
+                            playerX += bulletSpeed;
+                        }
+                        playerRectangle = new Microsoft.Xna.Framework.Rectangle(playerX, playerY, playerWidth, playerHeight);
+
+                        if (Enemies.Count == 0)
+                            gameState = GameState.Won;
+                        else if (Enemies.Any(enemy => enemy.y >= playerY))
+                            gameState = GameState.Lost;
+                    }
+                    break;
+
+                case GameState.Won:
+                    bulletRectangle = new Microsoft.Xna.Framework.Rectangle(bulletX, bulletY, 0, 0);
+                    playerRectangle = new Microsoft.Xna.Framework.Rectangle(0, playerY, playerWidth * 2, playerHeight * 2);
+                    backgroundColor = Color.Green;
+                    break;
+
+                case GameState.Lost:
+                    bulletRectangle = new Microsoft.Xna.Framework.Rectangle(bulletX, bulletY, 0, 0);
+                    playerRectangle = new Microsoft.Xna.Framework.Rectangle(0, playerY, playerWidth / 2, playerHeight / 2);
+                    backgroundColor = Color.Red;
+                    break;
+            }
+            base.Update(gameTime);
+        }
+
+        protected override void Draw(GameTime gameTime) {
+            GraphicsDevice.Clear(backgroundColor);
+
+            _spriteBatch.Begin();
+            _spriteBatch.Draw(playerTexture, playerRectangle, Color.White);
+            foreach (var enemy in Enemies) {
+                _spriteBatch.Draw(enemyTexture, new Rectangle(enemy.x, enemy.y, enemyWidth, enemyHeight), Color.White);
+            }
+            _spriteBatch.Draw(bulletTexture, bulletRectangle, BulletFired ? Color.White : Color.Transparent);
+            _spriteBatch.End();
+
+            base.Draw(gameTime);
+        }
+    }
+}
