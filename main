@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System;
 using System.Linq;
 using System.Xml;
+using System.Collections;
 
 namespace SpaceInvaders {
     public class Game1 : Game {
@@ -36,7 +37,7 @@ namespace SpaceInvaders {
         List<enemy> Enemies = new();
         const int enemyWidth = 50;
         const int enemyHeight = 50;
-        const int enemyStartHeight = 10;
+        const int enemyStartHeight = 50;
         const int EnemySpeedY = 10;
         const int EnemySpacing = 60;
         const int enemyBatchCount = 10;
@@ -110,7 +111,7 @@ namespace SpaceInvaders {
                             enemyMovementX = -enemyMovementX;
                         }
 
-                        //MARK: If any invader hit a side of the screen, move all invaders down
+                        // MARK: If any invader hit a side of the screen, move all invaders down
                         if (shouldDropDown) {
                             foreach (var enemy in Enemies) {
                                 enemy.y += EnemySpeedY;
@@ -118,19 +119,25 @@ namespace SpaceInvaders {
 
                             // If there is room above for another row and room at the bottom, add another row of enemies
                             int min = 1000000000;
-                            foreach (var enemy in Enemies) {
-                                if (enemy.x < min) { min = enemy.x; }
+                            for (int i = 0; i < Enemies.Count; i++) { min = Enemies[i].x; }
+
+                            foreach (enemy a in Enemies) {
+                                if (a.x <= min) {
+                                    min = a.x;
+                                    Console.WriteLine(a.x);
+                                }
                             }
-                            if (min < enemyHeight*4) {
+
+                                if (min < enemyStartHeight * 2) {
                                 for (int i = 0; i < enemyBatchCount; i++) {
-                                    Enemies.Add(new enemy { x = i * EnemySpacing, y = enemyStartHeight - enemyHeight/2});
+                                    Enemies.Add(new enemy { x = i * EnemySpacing, y = enemyStartHeight - 20});
 
                                 }
                                 score += 50;
                             }
                         }
 
-                        //MARK: Bullet Logic
+                        // MARK: Bullet Logic
                         if (BulletFired) {
                             for (int i = Enemies.Count - 1; i >= 0; i--) {
                                 if (bulletRectangle.Intersects(new Rectangle(Enemies[i].x, Enemies[i].y, enemyWidth, enemyHeight))) {
@@ -146,8 +153,7 @@ namespace SpaceInvaders {
                             }
                             bulletY -= bulletSpeed;
                             bulletRectangle = new Microsoft.Xna.Framework.Rectangle(bulletX, bulletY, bulletWidth, bulletHeight);
-                        }
-                        else if (keyboardState.IsKeyDown(Keys.W)) {
+                        } else if (keyboardState.IsKeyDown(Keys.W)) {
                             BulletFired = true;
                             bulletX = playerX + (playerWidth / 2);
                             bulletY = playerY - playerHeight / 2;
