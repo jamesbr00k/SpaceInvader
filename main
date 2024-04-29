@@ -36,12 +36,50 @@ namespace SpaceInvaders {
         enemy[] Enemy = Array.Empty<enemy>();
         List<enemy> Enemies = new();
         const int enemyWidth = 50;
-        const int enemyHeight = 50;
-        const int enemyStartHeight = 50;
-        const int EnemySpeedY = 10;
-        const int EnemySpacing = 60;
+        const int enemyHeight = enemyWidth;
+        const int enemyStartHeight = 10;
+        const int EnemySpeedY = 20;
+        const int EnemySpacing = enemyWidth + (enemyWidth/4);
         const int enemyBatchCount = 10;
         int enemyMovementX = 1;
+
+        static void SpawnEnemy(List<enemy> enemies) {
+            for (int i = 0; i < enemyBatchCount; i++) {
+                enemies.Add(new enemy {
+                    x = i * EnemySpacing,
+                    y = enemyStartHeight,
+                    live = true
+                });
+            }
+        }
+
+        public void EnemyLogic() {
+            bool shouldDropDown = false;
+
+            /// Check if the leftmost or rightmost enemy has hit a side of the screen
+            if (Enemies.Min(e => e.x) < 0 || Enemies.Max(e => e.x) > _graphics.PreferredBackBufferWidth - enemyWidth) {
+                shouldDropDown = true;
+                enemyMovementX = -enemyMovementX;
+            }
+
+            /// If any invader hit a side of the screen, move all invaders down
+            if (shouldDropDown) {
+                foreach (var enemy in Enemies) {
+                    enemy.y += EnemySpeedY;
+                }
+            }
+
+            // lower than the spawn boundry and on the leading edge
+            if (Enemies.Min(e => e.y) > enemyStartHeight * 2 && Enemies.Min(e => e.x) < 0) {
+                SpawnEnemy(Enemies);
+                score += 50;
+            }
+
+            /// Move invaders left or right and check if any hit a side of the screen
+            foreach (var enemy in Enemies) {
+                enemy.x += enemyMovementX;
+            }
+        }
 
         // Player properties
         const int playerWidth = 40;
@@ -53,10 +91,39 @@ namespace SpaceInvaders {
         // Bullet properties
         const int bulletWidth = 10;
         const int bulletHeight = 30;
-        const int bulletSpeed = 5;
+        const int bulletSpeed = 10;
         bool BulletFired = false;
         int bulletX = 0;
         int bulletY = 0;
+
+        public void BulletLogic() {
+            var keyboardState = Keyboard.GetState();
+
+            if (BulletFired) {
+                for (int i = Enemies.Count - 1; i >= 0; i--) {
+                    if (bulletRectangle.Intersects(new Rectangle(Enemies[i].x, Enemies[i].y, enemyWidth, enemyHeight))) {
+                        Enemies.RemoveAt(i);
+                        BulletFired = false;
+                        score += 10;
+                        break;
+                    }
+                    else if (bulletY < 0) {
+                        BulletFired = false;
+                        break;
+                    }
+                }
+
+                bulletY -= bulletSpeed;
+                bulletRectangle = new Microsoft.Xna.Framework.Rectangle(bulletX, bulletY, bulletWidth, bulletHeight);
+
+            }
+            else if (keyboardState.IsKeyDown(Keys.W)) {
+                BulletFired = true;
+                bulletX = playerX + (playerWidth / 2);
+                bulletY = playerY - playerHeight / 2;
+                bulletRectangle = new Microsoft.Xna.Framework.Rectangle(bulletX, bulletY, bulletWidth, bulletHeight);
+            }
+        }
 
         public Game1() {
             _graphics = new GraphicsDeviceManager(this);
@@ -80,13 +147,7 @@ namespace SpaceInvaders {
             enemyTexture = Content.Load<Texture2D>("invader");
             bulletTexture = Content.Load<Texture2D>("Untitled");
 
-            for (int i = 0; i < enemyBatchCount; i++) {
-                Enemies.Add(new enemy {
-                    x = i * EnemySpacing,
-                    y = enemyStartHeight,
-                    live = true
-                });
-            }
+            SpawnEnemy(Enemies);
         }
 
         protected override void Update(GameTime gameTime) {
@@ -97,75 +158,25 @@ namespace SpaceInvaders {
 
             switch (gameState) {
                 case GameState.Playing: {
-                        //MARK: Invader Movement
-                        bool shouldDropDown = false;
-
-                        // Move invaders left or right and check if any hit a side of the screen
-                        foreach (var enemy in Enemies) {
-                            enemy.x += enemyMovementX;
-                        }
-
-                        // Check if the leftmost or rightmost enemy has hit a side of the screen
-                        if (Enemies.Min(e => e.x) < 0 || Enemies.Max(e => e.x) > _graphics.PreferredBackBufferWidth - enemyWidth) {
-                            shouldDropDown = true;
-                            enemyMovementX = -enemyMovementX;
-                        }
-
-                        // MARK: If any invader hit a side of the screen, move all invaders down
-                        if (shouldDropDown) {
-                            foreach (var enemy in Enemies) {
-                                enemy.y += EnemySpeedY;
-                            }
-
-                            // If there is room above for another row and room at the bottom, add another row of enemies
-                            int min = 1000000000;
-                            for (int i = 0; i < Enemies.Count; i++) { min = Enemies[i].x; }
-
-                            foreach (enemy a in Enemies) {
-                                if (a.x <= min) {
-                                    min = a.x;
-                                    Console.WriteLine(a.x);
-                                }
-                            }
-
-                                if (min < enemyStartHeight * 2) {
-                                for (int i = 0; i < enemyBatchCount; i++) {
-                                    Enemies.Add(new enemy { x = i * EnemySpacing, y = enemyStartHeight - 20});
-
-                                }
-                                score += 50;
-                            }
-                        }
-
-                        // MARK: Bullet Logic
-                        if (BulletFired) {
-                            for (int i = Enemies.Count - 1; i >= 0; i--) {
-                                if (bulletRectangle.Intersects(new Rectangle(Enemies[i].x, Enemies[i].y, enemyWidth, enemyHeight))) {
-                                    Enemies.RemoveAt(i);
-                                    BulletFired = false;
-                                    score += 10;
-                                    break;
-                                }
-                                else if (bulletY < 0) {
-                                    BulletFired = false;
-                                    break;
-                                }
-                            }
-                            bulletY -= bulletSpeed;
-                            bulletRectangle = new Microsoft.Xna.Framework.Rectangle(bulletX, bulletY, bulletWidth, bulletHeight);
-                        } else if (keyboardState.IsKeyDown(Keys.W)) {
-                            BulletFired = true;
-                            bulletX = playerX + (playerWidth / 2);
-                            bulletY = playerY - playerHeight / 2;
-                            bulletRectangle = new Microsoft.Xna.Framework.Rectangle(bulletX, bulletY, bulletWidth, bulletHeight);
-                        }
-
+                        
+                        EnemyLogic();
+                        BulletLogic();
+                        
+                        // MARK: Player Logic
                         if (keyboardState.IsKeyDown(Keys.A)) {
                             playerX -= bulletSpeed;
+                            if (playerX < 0) {
+                                playerX = _graphics.PreferredBackBufferWidth - enemyWidth;
+                            }
                         } else if (keyboardState.IsKeyDown(Keys.D)) {
                             playerX += bulletSpeed;
+                            if (playerX - playerWidth > _graphics.PreferredBackBufferWidth - enemyWidth) {
+                                playerX = 0;
+                            }
                         }
                         playerRectangle = new Microsoft.Xna.Framework.Rectangle(playerX, playerY, playerWidth, playerHeight);
+
+                        // MARK: Game State logic
 
                         if (Enemies.Count == 0)
                             gameState = GameState.Won;
@@ -176,13 +187,13 @@ namespace SpaceInvaders {
 
                 case GameState.Won:
                     bulletRectangle = new Microsoft.Xna.Framework.Rectangle(bulletX, bulletY, 0, 0);
-                    playerRectangle = new Microsoft.Xna.Framework.Rectangle(0, playerY, playerWidth * 2, playerHeight * 2);
+                    playerRectangle = new Microsoft.Xna.Framework.Rectangle(playerX, playerY, playerWidth * 2, playerHeight * 2);
                     backgroundColor = Color.Green;
                     break;
 
                 case GameState.Lost:
                     bulletRectangle = new Microsoft.Xna.Framework.Rectangle(bulletX, bulletY, 0, 0);
-                    playerRectangle = new Microsoft.Xna.Framework.Rectangle(0, playerY, playerWidth / 2, playerHeight / 2);
+                    playerRectangle = new Microsoft.Xna.Framework.Rectangle(playerX, playerY, playerWidth / 2, playerHeight / 2);
                     backgroundColor = Color.Red;
                     break;
             }
